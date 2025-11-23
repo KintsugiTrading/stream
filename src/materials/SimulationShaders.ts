@@ -79,7 +79,7 @@ uniform float depositionRate;
 uniform vec2 mousePos;
 uniform float mouseSize;
 uniform float mouseStrength;
-uniform int toolType; // 0: None, 1: Dig (Remove), 2: Sand (Add)
+uniform float toolType; // 0: None, 1: Dig (Remove), 2: Sand (Add)
 
 void main() {
     vec2 uv = gl_FragCoord.xy / gridDim;
@@ -97,10 +97,10 @@ void main() {
     // Mouse Interaction (Dig / Add Sand)
     float dist = distance(uv, mousePos);
     if (dist < mouseSize) {
-        if (toolType == 1) {
+        if (toolType > 0.5 && toolType < 1.5) {
             // Dig: Remove terrain
             terrainH -= mouseStrength * delta;
-        } else if (toolType == 2) {
+        } else if (toolType > 1.5) {
             // Sand: Add terrain
             terrainH += mouseStrength * delta;
         }
