@@ -78,6 +78,10 @@ uniform vec2 gridDim;
 uniform float delta;
 uniform float erosionRate;
 uniform float depositionRate;
+uniform vec2 mousePos;
+uniform float mouseSize;
+uniform float mouseStrength;
+uniform int toolType; // 0: None, 1: Dig (Remove), 2: Sand (Add)
 
 void main() {
     vec2 uv = gl_FragCoord.xy / gridDim;
@@ -91,6 +95,22 @@ void main() {
     vec4 waterData = texture2D(tWater, uv);
     float waterH = waterData.x;
     float velocity = abs(waterData.y); // Simple speed approximation
+
+    // Mouse Interaction (Dig / Add Sand)
+    float dist = distance(uv, mousePos);
+    if (dist < mouseSize) {
+        if (toolType == 1) {
+            // Dig: Remove terrain
+            terrainH -= mouseStrength * delta;
+        } else if (toolType == 2) {
+            // Sand: Add terrain
+            terrainH += mouseStrength * delta;
+        }
+    }
+    
+    // Clamp terrain height to reasonable values
+    if (terrainH < 0.0) terrainH = 0.0;
+    if (terrainH > 2.0) terrainH = 2.0;
 
     // Erosion / Deposition Logic
     // Capacity is how much sediment the water can carry based on speed
