@@ -35,8 +35,9 @@ export default function Stream({ slope }: StreamProps) {
     const isMouseDown = useRef(false);
 
     // Controls
-    const { tool, viscosity, flowRate, erosionRate, depositionRate, mouseSize, mouseStrength } = useControls('Simulation', {
+    const { tool, isRunning, viscosity, flowRate, erosionRate, depositionRate, mouseSize, mouseStrength } = useControls('Simulation', {
         tool: { options: ['water', 'dig', 'sand', 'plant'] },
+        isRunning: { value: false, label: 'Start Water' },
         viscosity: { value: 0.98, min: 0.9, max: 0.999 },
         flowRate: { value: 2.0, min: 0, max: 10 },
         erosionRate: { value: 0.5, min: 0, max: 2 },
@@ -111,7 +112,7 @@ export default function Stream({ slope }: StreamProps) {
         wVar.material.uniforms.delta = { value: delta };
         wVar.material.uniforms.gridDim = { value: new THREE.Vector2(WIDTH, WIDTH) };
         wVar.material.uniforms.viscosity = { value: viscosity };
-        wVar.material.uniforms.flowRate = { value: flowRate };
+        wVar.material.uniforms.flowRate = { value: isRunning ? flowRate : 0.0 };
         wVar.material.uniforms.slope = { value: slope }; // Pass slope
         wVar.material.uniforms.tObstacles = { value: obstacleTexture.current };
 

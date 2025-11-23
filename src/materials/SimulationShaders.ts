@@ -56,8 +56,9 @@ void main() {
         waterH += mouseStrength * delta;
     }
 
-    // Source (Pump)
-    if (uv.y > 0.95 && uv.x > 0.45 && uv.x < 0.55) {
+    // Source (Spray Bar)
+    // Emit water across the top (high Y) with some width
+    if (uv.y > 0.96) {
         waterH += flowRate * delta;
     }
     
