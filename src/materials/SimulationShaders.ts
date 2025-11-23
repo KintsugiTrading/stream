@@ -81,61 +81,156 @@ uniform vec2 mousePos;
 uniform float mouseSize;
 uniform float mouseStrength;
 uniform float toolType; // 0: None, 1: Dig (Remove), 2: Sand (Add)
+uniform float time; // For randomization
+
+// Random function for sand variation
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
 
 void main() {
     vec2 uv = gl_FragCoord.xy / gridDim;
+    vec2 texel = 1.0 / gridDim;
     
-    // Terrain State: x = height, y = sediment suspended
+    // Terrain State: x = height, y = sediment, z = sand particles (discrete), w = color variation seed
     vec4 terrainData = texture2D(tTerrain, uv);
     float terrainH = terrainData.x;
     float sediment = terrainData.y;
-
+    float sandParticles = terrainData.z; // Discrete sand particle count
+    float colorSeed = terrainData.w; // For color variation
+    
     // Water State
     vec4 waterData = texture2D(tWater, uv);
     float waterH = waterData.x;
-    float velocity = abs(waterData.y); // Simple speed approximation
+    float velocity = abs(waterData.y);
+    
+    // CELLULAR AUTOMATON SAND PHYSICS
+    // Only apply if we have sand particles and minimal water
+    if (sandParticles > 0.1 && waterH < 0.5) {
+        vec2 pixelCoord = gl_FragCoord.xy;
+        
+        // Check cell below
+        vec4 belowData = texture2D(tTerrain, uv - vec2(0.0, texel.y));
+        float belowSand = belowData.z;
+        float belowHeight = belowData.x;
+        
+        // Random direction for diagonal falling
+        float randDir = random(pixelCoord + vec2(time * 0.1, 0.0));
+        int dir = randDir < 0.5 ? -1 : 1;
+        
+        // Check diagonal cells
+        vec4 diagData = texture2D(tTerrain, uv + vec2(float(dir) * texel.x, -texel.y));
+        float diagSand = diagData.z;
+        float diagHeight = diagData.x;
+        
+        vec4 altDiagData = texture2D(tTerrain, uv + vec2(float(-dir) * texel.x, -texel.y));
+        float altDiagSand = altDiagData.z;
+        float altDiagHeight = altDiagData.x;
+        
+        // Rule 1: Fall straight down if space below is empty
+        if (belowSand < 0.5 && belowHeight < terrainH - 0.1) {
+            // Sand will fall (handled by the cell below reading this cell)
+            // For now, reduce this cell's sand
+            sandParticles = max(0.0, sandParticles - 2.0 * delta * 30.0);
+            terrainH = max(0.0, terrainH - 0.02 * delta * 30.0);
+        }
+        // Rule 2: Slide diagonally if can't fall straight
+        else if (diagSand < sandParticles - 0.5 && diagHeight < terrainH) {
+            sandParticles = max(0.0, sandParticles - 1.0 * delta * 20.0);
+            terrainH = max(0.0, terrainH - 0.01 * delta * 20.0);
+        }
+        else if (altDiagSand < sandParticles - 0.5 && altDiagHeight < terrainH) {
+            sandParticles = max(0.0, sandParticles - 1.0 * delta * 20.0);
+            terrainH = max(0.0, terrainH - 0.01 * delta * 20.0);
+        }
+        
+        // RECEIVE SAND FROM ABOVE
+        vec4 aboveData = texture2D(tTerrain, uv + vec2(0.0, texel.y));
+        float aboveSand = aboveData.z;
+        float aboveHeight = aboveData.x;
+        
+        // If above has sand and we're lower, receive it
+        if (aboveSand > 0.5 && aboveHeight > terrainH + 0.1) {
+            sandParticles += 2.0 * delta * 30.0;
+            terrainH += 0.02 * delta * 30.0;
+        }
+        
+        // RECEIVE FROM DIAGONALS
+        vec4 diagAbove1 = texture2D(tTerrain, uv + vec2(texel.x, texel.y));
+        if (diagAbove1.z > sandParticles + 0.5 && diagAbove1.x > terrainH) {
+            sandParticles += 1.0 * delta * 20.0;
+            terrainH += 0.01 * delta * 20.0;
+        }
+        
+        vec4 diagAbove2 = texture2D(tTerrain, uv + vec2(-texel.x, texel.y));
+        if (diagAbove2.z > sandParticles + 0.5 && diagAbove2.x > terrainH) {
+            sandParticles += 1.0 * delta * 20.0;
+            terrainH += 0.01 * delta * 20.0;
+        }
+    }
 
     // Mouse Interaction (Dig / Add Sand)
     float dist = distance(uv, mousePos);
     if (dist < mouseSize) {
-        // Use abs() comparison for safer float equality checks
         float eps = 0.1;
         
         // Tool 1 = Dig (Remove)
         if (abs(toolType - 1.0) < eps) {
             terrainH -= mouseStrength * delta * 10.0;
+            sandParticles = max(0.0, sandParticles - mouseStrength * delta * 5.0);
         }
         
-        // Tool 2 = Sand (Add)  
+        // Tool 2 = Sand (Add) - Create particles that will fall!
         if (abs(toolType - 2.0) < eps) {
-            terrainH += mouseStrength * delta * 10.0;
+            terrainH += mouseStrength * delta * 50.0;
+            sandParticles += mouseStrength * delta * 25.0;
+            
+            // Generate unique color seed for this sand
+            if (colorSeed < 0.01) {
+                colorSeed = random(uv + vec2(time, 0.0));
+            }
         }
     }
     
-    // Clamp terrain height to reasonable values
+    // Sync terrain height with sand particles
+    if (sandParticles > 0.1) {
+        terrainH = max(terrainH, sandParticles * 0.02);
+    }
+    
+    // Clamp values
     if (terrainH < 0.0) terrainH = 0.0;
     if (terrainH > 5.0) terrainH = 5.0;
+    sandParticles = clamp(sandParticles, 0.0, 100.0);
 
-    // Erosion / Deposition Logic
-    // Capacity is how much sediment the water can carry based on speed
-    float capacity = velocity * 2.0; 
+    // Erosion / Deposition Logic (only when water is present)
+    if (waterH > 0.05) {
+        float capacity = velocity * 2.0;
 
-    if (capacity > sediment) {
-        // Erode (Pick up sediment)
-        float erodeAmount = (capacity - sediment) * erosionRate * delta;
-        // Don't erode more than available terrain (simple check)
-        erodeAmount = min(erodeAmount, terrainH);
-        
-        terrainH -= erodeAmount;
-        sediment += erodeAmount;
-    } else {
-        // Deposit (Drop sediment)
-        float depositAmount = (sediment - capacity) * depositionRate * delta;
-        
-        terrainH += depositAmount;
-        sediment -= depositAmount;
+        if (capacity > sediment) {
+            // Erode (Pick up sediment) - also converts sand particles to sediment
+            float erodeAmount = (capacity - sediment) * erosionRate * delta;
+            erodeAmount = min(erodeAmount, terrainH);
+            
+            terrainH -= erodeAmount;
+            sediment += erodeAmount;
+            
+            // Remove some sand particles (they become sediment)
+            sandParticles = max(0.0, sandParticles - erodeAmount * 5.0);
+        } else {
+            // Deposit (Drop sediment) - becomes sand particles
+            float depositAmount = (sediment - capacity) * depositionRate * delta;
+            
+            terrainH += depositAmount;
+            sediment -= depositAmount;
+            sandParticles += depositAmount * 3.0;
+            
+            // Generate color seed for deposited sand
+            if (colorSeed < 0.01) {
+                colorSeed = random(uv + vec2(time * 0.5, 0.0));
+            }
+        }
     }
 
-    gl_FragColor = vec4(terrainH, sediment, 0.0, 1.0);
+    gl_FragColor = vec4(terrainH, sediment, sandParticles, colorSeed);
 }
 `;

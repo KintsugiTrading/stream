@@ -131,17 +131,13 @@ export default function Stream({ slope }: StreamProps) {
         tVar.material.uniforms.gridDim = { value: new THREE.Vector2(WIDTH, WIDTH) };
         tVar.material.uniforms.erosionRate = { value: erosionRate };
         tVar.material.uniforms.depositionRate = { value: depositionRate };
+        tVar.material.uniforms.time = { value: state.clock.elapsedTime };
 
         // Mouse Interaction for Terrain (Dig/Sand)
         let toolType = 0;
         if (isMouseDown.current) {
             if (tool === 'dig') toolType = 1;
             if (tool === 'sand') toolType = 2;
-
-            // Debug logging
-            if (toolType > 0) {
-                console.log('Tool:', tool, 'ToolType:', toolType, 'MousePos:', mousePos.current, 'IsMouseDown:', isMouseDown.current);
-            }
         }
 
         tVar.material.uniforms.mousePos = { value: mousePos.current };
@@ -248,9 +244,9 @@ export default function Stream({ slope }: StreamProps) {
             float hD = texture2D(tWater, uv - vec2(0, offset)).x + texture2D(tTerrain, uv - vec2(0, offset)).x;
             float hU = texture2D(tWater, uv + vec2(0, offset)).x + texture2D(tTerrain, uv + vec2(0, offset)).x;
             
-            vNormal = normalize(vec3(hL - hR, 2.0 * offset, hD - hU));
+            vNormal = normalize(vec3(hL - hR, hD - hU, 2.0 * offset));
 
-            pos.y += (terrainH + waterH) * 0.5; 
+            pos.z += (terrainH + waterH) * 1.5; 
             
             vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
             vViewPosition = -mvPosition.xyz;
@@ -322,9 +318,9 @@ export default function Stream({ slope }: StreamProps) {
             float hL = texture2D(tTerrain, uv - vec2(offset, 0)).x;
             float hD = texture2D(tTerrain, uv - vec2(0, offset)).x;
             float hU = texture2D(tTerrain, uv + vec2(0, offset)).x;
-            vNormal = normalize(vec3(hL - hR, 2.0 * offset, hD - hU));
+            vNormal = normalize(vec3(hL - hR, hD - hU, 2.0 * offset));
 
-            pos.y += terrainH * 1.5;
+            pos.z += terrainH * 1.5;
             
             gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
@@ -333,11 +329,22 @@ export default function Stream({ slope }: StreamProps) {
         uniform vec3 sandColor;
         uniform vec3 wetSandColor;
         uniform sampler2D tWater;
+        uniform sampler2D tTerrain;
         varying float vHeight;
         varying vec2 vUv;
         varying vec3 vNormal;
+        
+        // Random function for color variation
+        float random(vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+        }
 
         void main() {
+            // Get terrain data (now includes color seed)
+            vec4 terrainData = texture2D(tTerrain, vUv);
+            float colorSeed = terrainData.w;
+            float sandParticles = terrainData.z;
+            
             // Check for water above
             float waterH = texture2D(tWater, vUv).x;
             
@@ -345,15 +352,21 @@ export default function Stream({ slope }: StreamProps) {
             vec3 sunDir = normalize(vec3(1.0, 1.0, 0.5));
             float diff = max(dot(vNormal, sunDir), 0.0);
             
-            vec3 col = sandColor;
+            // Color variation based on seed (like reference: #c2b280 ± 15 RGB)
+            float variation = (colorSeed - 0.5) * 30.0; // -15 to +15
+            vec3 col = vec3(
+                (194.0 + variation) / 255.0,
+                (178.0 + variation) / 255.0,
+                (128.0 + variation) / 255.0
+            );
+            
+            // Add per-pixel micro variation for granular look
+            float microVariation = (random(vUv * 100.0) - 0.5) * 0.05;
+            col += vec3(microVariation);
             
             // Wet sand logic
             if (waterH > 0.01) {
                 col = wetSandColor;
-            } else {
-                // Wet rim
-                // Simple check: if water is very close (not implemented in frag shader easily without blur)
-                // Instead, we can just darken based on depth or noise
             }
             
             col *= (0.5 + diff * 0.5); // Apply lighting
@@ -367,7 +380,7 @@ export default function Stream({ slope }: StreamProps) {
     return (
         <group
             rotation={[-Math.PI / 2, 0, 0]}
-            position={[0, -0.2, 0]}
+            position={[0, 0.05, 0]}
             onPointerMove={handlePointerMove}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
