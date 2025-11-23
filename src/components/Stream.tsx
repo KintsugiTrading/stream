@@ -43,7 +43,7 @@ export default function Stream({ slope }: StreamProps) {
         erosionRate: { value: 0.5, min: 0, max: 2 },
         depositionRate: { value: 0.5, min: 0, max: 2 },
         mouseSize: { value: 0.05, min: 0.01, max: 0.2 },
-        mouseStrength: { value: 50.0, min: 1.0, max: 200.0 },
+        mouseStrength: { value: 100.0, min: 1.0, max: 500.0 },
     });
 
     const [simReady, setSimReady] = useState(false);

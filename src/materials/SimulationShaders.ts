@@ -109,7 +109,7 @@ void main() {
     
     // Clamp terrain height to reasonable values
     if (terrainH < 0.0) terrainH = 0.0;
-    if (terrainH > 2.0) terrainH = 2.0;
+    if (terrainH > 5.0) terrainH = 5.0;
 
     // Erosion / Deposition Logic
     // Capacity is how much sediment the water can carry based on speed
