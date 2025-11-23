@@ -66,6 +66,11 @@ void main() {
     if (uv.y < 0.02) {
         waterH *= 0.9;
     }
+    
+    // Drain at the sides to prevent vertical water walls
+    if (uv.x < 0.02 || uv.x > 0.98) {
+        waterH *= 0.5;
+    }
 
     gl_FragColor = vec4(waterH, velocity, 0.0, 1.0);
 }
@@ -127,19 +132,22 @@ void main() {
         float altDiagSand = altDiagData.z;
         float altDiagHeight = altDiagData.x;
         
-        // Rule 1: Fall straight down if space below is empty
-        if (belowSand < 0.5 && belowHeight < terrainH - 0.1) {
+        // Stability threshold - sand only moves if height difference is significant
+        float stabilityThreshold = 0.15;
+        
+        // Rule 1: Fall straight down if space below is empty and height difference is significant
+        if (belowSand < 0.5 && terrainH - belowHeight > stabilityThreshold) {
             // Sand will fall (handled by the cell below reading this cell)
             // For now, reduce this cell's sand
             sandParticles = max(0.0, sandParticles - 2.0 * delta * 30.0);
             terrainH = max(0.0, terrainH - 0.02 * delta * 30.0);
         }
-        // Rule 2: Slide diagonally if can't fall straight
-        else if (diagSand < sandParticles - 0.5 && diagHeight < terrainH) {
+        // Rule 2: Slide diagonally if can't fall straight and slope is steep enough
+        else if (diagSand < sandParticles - 1.0 && terrainH - diagHeight > stabilityThreshold) {
             sandParticles = max(0.0, sandParticles - 1.0 * delta * 20.0);
             terrainH = max(0.0, terrainH - 0.01 * delta * 20.0);
         }
-        else if (altDiagSand < sandParticles - 0.5 && altDiagHeight < terrainH) {
+        else if (altDiagSand < sandParticles - 1.0 && altDiagHeight - terrainH > stabilityThreshold) {
             sandParticles = max(0.0, sandParticles - 1.0 * delta * 20.0);
             terrainH = max(0.0, terrainH - 0.01 * delta * 20.0);
         }
@@ -149,21 +157,21 @@ void main() {
         float aboveSand = aboveData.z;
         float aboveHeight = aboveData.x;
         
-        // If above has sand and we're lower, receive it
-        if (aboveSand > 0.5 && aboveHeight > terrainH + 0.1) {
+        // If above has sand and height difference is significant, receive it
+        if (aboveSand > 0.5 && aboveHeight - terrainH > stabilityThreshold) {
             sandParticles += 2.0 * delta * 30.0;
             terrainH += 0.02 * delta * 30.0;
         }
         
-        // RECEIVE FROM DIAGONALS
+        // RECEIVE FROM DIAGONALS - only if slope is steep enough
         vec4 diagAbove1 = texture2D(tTerrain, uv + vec2(texel.x, texel.y));
-        if (diagAbove1.z > sandParticles + 0.5 && diagAbove1.x > terrainH) {
+        if (diagAbove1.z > sandParticles + 1.0 && diagAbove1.x - terrainH > stabilityThreshold) {
             sandParticles += 1.0 * delta * 20.0;
             terrainH += 0.01 * delta * 20.0;
         }
         
         vec4 diagAbove2 = texture2D(tTerrain, uv + vec2(-texel.x, texel.y));
-        if (diagAbove2.z > sandParticles + 0.5 && diagAbove2.x > terrainH) {
+        if (diagAbove2.z > sandParticles + 1.0 && diagAbove2.x - terrainH > stabilityThreshold) {
             sandParticles += 1.0 * delta * 20.0;
             terrainH += 0.01 * delta * 20.0;
         }
