@@ -1,6 +1,5 @@
 export const WaterFragmentShader = `
-uniform sampler2D tWater;
-uniform sampler2D tTerrain;
+
 uniform vec2 gridDim;
 uniform float delta;
 uniform float viscosity;
@@ -72,8 +71,7 @@ void main() {
 `;
 
 export const TerrainFragmentShader = `
-uniform sampler2D tWater;
-uniform sampler2D tTerrain;
+
 uniform vec2 gridDim;
 uniform float delta;
 uniform float erosionRate;
