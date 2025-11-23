@@ -98,12 +98,17 @@ void main() {
     // Mouse Interaction (Dig / Add Sand)
     float dist = distance(uv, mousePos);
     if (dist < mouseSize) {
-        if (toolType > 0.5 && toolType < 1.5) {
-            // Dig: Remove terrain
-            terrainH -= mouseStrength * delta;
-        } else if (toolType > 1.5) {
-            // Sand: Add terrain
-            terrainH += mouseStrength * delta;
+        // Use abs() comparison for safer float equality checks
+        float eps = 0.1;
+        
+        // Tool 1 = Dig (Remove)
+        if (abs(toolType - 1.0) < eps) {
+            terrainH -= mouseStrength * delta * 10.0;
+        }
+        
+        // Tool 2 = Sand (Add)  
+        if (abs(toolType - 2.0) < eps) {
+            terrainH += mouseStrength * delta * 10.0;
         }
     }
     

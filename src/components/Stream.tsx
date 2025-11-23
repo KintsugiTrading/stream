@@ -137,6 +137,11 @@ export default function Stream({ slope }: StreamProps) {
         if (isMouseDown.current) {
             if (tool === 'dig') toolType = 1;
             if (tool === 'sand') toolType = 2;
+
+            // Debug logging
+            if (toolType > 0) {
+                console.log('Tool:', tool, 'ToolType:', toolType, 'MousePos:', mousePos.current, 'IsMouseDown:', isMouseDown.current);
+            }
         }
 
         tVar.material.uniforms.mousePos = { value: mousePos.current };
