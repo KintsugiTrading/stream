@@ -43,7 +43,7 @@ export default function Stream({ slope }: StreamProps) {
         erosionRate: { value: 0.5, min: 0, max: 2 },
         depositionRate: { value: 0.5, min: 0, max: 2 },
         mouseSize: { value: 0.05, min: 0.01, max: 0.2 },
-        mouseStrength: { value: 5.0, min: 1.0, max: 10.0 },
+        mouseStrength: { value: 50.0, min: 1.0, max: 200.0 },
     });
 
     const [simReady, setSimReady] = useState(false);
@@ -319,7 +319,7 @@ export default function Stream({ slope }: StreamProps) {
             float hU = texture2D(tTerrain, uv + vec2(0, offset)).x;
             vNormal = normalize(vec3(hL - hR, 2.0 * offset, hD - hU));
 
-            pos.y += terrainH * 0.5;
+            pos.y += terrainH * 1.5;
             
             gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
